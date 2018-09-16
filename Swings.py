@@ -72,7 +72,7 @@ class Swing_Generator:
                 reg_point = Pivot_Point(current_row, row_count, "High")
                 found_first_swing = True
             elif current_row[self.ref_column] <= HH_ATR_Limit and (row_count - self.time_factor) > HH[1]:
-                swing_writer.writerow([LL[0]['Date_Time'], LL[0][self.ref_column], "High"]) #write out first swing point
+                swing_writer.writerow([HH[0]['Date_Time'], HH[0][self.ref_column], "High"]) #write out first swing point
                 reg_point = Pivot_Point(current_row, row_count, "Low")
                 found_first_swing = True
             elif current_row[self.ref_column] < LL[0][self.ref_column]:
@@ -102,9 +102,15 @@ class Swing_Generator:
                 if current_row[self.ref_column] > reg_point.data[self.ref_column]: #new extreme with direction
                     reg_point = reg_point._replace(data = current_row, row = row_count)
                 elif current_row[self.ref_column] < violation_price: #Violated ATR range in opposite direction
-                    swing_writer.writerow([reg_point.data["Date_Time"], reg_point.data[ref_column], reg_point.pos]) #write out previous RP as SP
+                    if self.DEBUG:
+                        print("Violated ATR in the Low direction. Register a new Low, write out previous RP High as Swing High")
+                        print("Previous REgisted Point: ", reg_point)
+                        
+                    swing_writer.writerow([reg_point.data["Date_Time"], reg_point.data[self.ref_column], reg_point.pos]) #write out previous RP as SP
                     reg_point = Pivot_Point(current_row, row_count, "Low") #re-regsiter RP
-                    row_count = row_count + self.time_factor - 1 #Skip X bars
+
+                    if self.DEBUG:
+                        print("New Registed Point: ", reg_point)
 
             elif reg_point.pos == "Low":
                 violation_price = reg_point.data[self.ref_column] + (reg_point.data["ATR"]*self.price_factor)
@@ -112,9 +118,15 @@ class Swing_Generator:
                 if current_row[self.ref_column] < reg_point.data[self.ref_column]: #new extreme with direction
                     reg_point = reg_point._replace(data = current_row, row = row_count)
                 elif current_row[self.ref_column] > violation_price: #Violated ATR range in opposite direction
+                    if self.DEBUG:
+                        print("Violated ATR in the High direction. Register a new High, write out previous RP low as Swing low")
+                        print("Previous REgisted Point: ", reg_point)
+
                     swing_writer.writerow([reg_point.data["Date_Time"], reg_point.data[self.ref_column], reg_point.pos]) #write out previous RP as SP
-                    reg_point = Pivot_Point(current_row, row_count, "Low") #re-regsiter RP
-                    row_count = row_count + self.time_factor - 1 #Skip X bars
+                    reg_point = Pivot_Point(current_row, row_count, "High") #re-regsiter RP
+
+                    if self.DEBUG:
+                        print("New Registed Point: ", reg_point)
             else:
                 eprint("Registered point posistion is something other than \"High\" or \"Low\"")
                 return False
