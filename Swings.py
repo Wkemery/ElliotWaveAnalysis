@@ -4,12 +4,18 @@ import copy
 import csv
 from Error import *
 
+import plotly.plotly  as py
+import plotly.offline as offline
+import plotly.graph_objs as go
+from datetime import datetime
 
 class Swing_Generator:
     DEBUG = True
 
-    def __init__(self, data_file, configfile="SwingConfig.conf"):
-        self.OHLC_data = pd.read_csv(data_file, names=['Date_Time', 'Open', 'High', 'Low', 'Close'], parse_dates=True)
+    def __init__(self, data_file, swing_file, configfile="SwingConfig.conf"):
+        self.swing_file = swing_file
+        self.data_file = data_file
+        self.OHLC_data = pd.read_csv(self.data_file, names=['Date_Time', 'Open', 'High', 'Low', 'Close'], parse_dates=True)
         self.ref_column = "NA"
         self.ATR_period = 0
         self.time_factor = -1
@@ -38,9 +44,9 @@ class Swing_Generator:
             raise ValueError("One or more required attributes not found in configuration file: " + configfile)
         infile.close()
 
-    def generate_swings(self, outfile):
+    def generate_swings(self):
         #Setup Stuff
-        swing_file = open(outfile, 'w', newline='')
+        swing_file = open(self.swing_file, 'w', newline='')
         swing_writer = csv.writer(swing_file, delimiter=',')
 
         OHLC_data = self.Average_True_Range(self.OHLC_data, self.ATR_period).dropna()
@@ -105,7 +111,7 @@ class Swing_Generator:
                     if self.DEBUG:
                         print("Violated ATR in the Low direction. Register a new Low, write out previous RP High as Swing High")
                         print("Previous REgisted Point: ", reg_point)
-                        
+
                     swing_writer.writerow([reg_point.data["Date_Time"], reg_point.data[self.ref_column], reg_point.pos]) #write out previous RP as SP
                     reg_point = Pivot_Point(current_row, row_count, "Low") #re-regsiter RP
 
@@ -155,3 +161,62 @@ class Swing_Generator:
         ATR = pd.Series(TR_s.ewm(span=n, min_periods=n).mean(), name='ATR_' + str(n))
         df = df.join(ATR)
         return df
+
+    def graph_OHLC(self):
+        #not quite there, but the other one works, which is what i really care about
+        OHLC_trace = go.Ohlc(x=self.OHLC_data.Date_Time,
+                open=self.OHLC_data.Open,
+                high=self.OHLC_data.High,
+                low=self.OHLC_data.Low,
+                close=self.OHLC_data.Close,
+                name="OHLC Data",
+                increasing=dict(line=dict(color= '#408e4a')),
+                decreasing=dict(line=dict(color= '#cc2718')))
+
+        swing_data = pd.read_csv(self.swing_file, names=['Date_Time', 'Price', 'Direction'], parse_dates=True)
+        swing_trace = go.Scatter(
+            x = swing_data.Date_Time,
+            y = swing_data.Price,
+            mode = 'lines+markers',
+            name = 'Swings',
+            line = dict(
+                color = ('rgb(111, 126, 130)'),
+                width = 3)
+        )
+
+        data = [OHLC_trace, swing_trace]
+        layout = go.Layout(xaxis = dict(rangeslider = dict(visible = False)), title= self.data_file[:-4])
+
+        fig = go.Figure(data=data, layout=layout)
+        py.plot(fig, filename=self.data_file + ".html", output_type='file')
+
+    def export_OHLC_graph(self):
+
+        OHLC_trace = go.Ohlc(x=self.OHLC_data.Date_Time,
+                open=self.OHLC_data.Open,
+                high=self.OHLC_data.High,
+                low=self.OHLC_data.Low,
+                close=self.OHLC_data.Close,
+                name="OHLC Data",
+                increasing=dict(line=dict(color= '#408e4a')),
+                decreasing=dict(line=dict(color= '#cc2718')))
+
+        swing_data = pd.read_csv(self.swing_file, names=['Date_Time', 'Price', 'Direction'], parse_dates=True)
+        swing_trace = go.Scatter(
+            x = swing_data.Date_Time,
+            y = swing_data.Price,
+            mode = 'lines+markers',
+            name = 'Swings',
+            line = dict(
+                color = ('rgb(111, 126, 130)'),
+                width = 3)
+        )
+
+        data = [OHLC_trace, swing_trace]
+
+        layout = {
+            'title': self.data_file[:-4],
+            'yaxis': {'title': 'Price'},
+        }
+        fig = go.Figure(data=data, layout=layout)
+        offline.plot(fig, output_type='file',filename=self.data_file + ".html", image='png', image_filename=self.data_file)
