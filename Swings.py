@@ -10,16 +10,22 @@ import plotly.graph_objs as go
 from datetime import datetime
 
 class Swing_Generator:
-    DEBUG = True
+    DEBUG = False
 
     def __init__(self, data_file, swing_file, configfile="SwingConfig.conf"):
         self.swing_file = swing_file
         self.data_file = data_file
-        self.OHLC_data = pd.read_csv(self.data_file, names=['Date_Time', 'Open', 'High', 'Low', 'Close'], parse_dates=True)
+        self.OHLC_data = pd.read_csv(self.data_file, names=['Date_Time', 'Open', 'High', 'Low', 'Close'])
+        self.OHLC_data = self.OHLC_data.reset_index(drop=False)
+        self.OHLC_data['Date_Time'] = pd.to_datetime(self.OHLC_data['index'] + ' ' + self.OHLC_data['Date_Time'])
+        self.OHLC_data = self.OHLC_data.drop(columns=['index'])
         self.ref_column = "NA"
         self.ATR_period = 0
         self.time_factor = -1
         self.price_factor = 0
+
+        if self.DEBUG:
+            print(self.OHLC_data.tail())
 
         infile = open(configfile, 'r', newline='')
         config_reader = csv.reader(infile, delimiter=',')
@@ -151,12 +157,13 @@ class Swing_Generator:
         :param n:
         :return: pandas.DataFrame
         """
-        i = 0
+        i = 1
         TR_l = [0]
-        while i < df.index[-1]:
-            TR = max(df.loc[i + 1, 'High'], df.loc[i, 'Close']) - min(df.loc[i + 1, 'Low'], df.loc[i, 'Close'])
+        rows = len(df.index)
+        while i < rows:
+            TR = max(df.iloc[i]['High'] - df.iloc[i]['Low'], abs(df.iloc[i]['High'] - df.iloc[i-1]['Close']), abs(df.iloc[i]['Low'] - df.iloc[i-1]['Close']))
             TR_l.append(TR)
-            i = i + 1
+            i += 1
         TR_s = pd.Series(TR_l)
         ATR = pd.Series(TR_s.ewm(span=n, min_periods=n).mean(), name='ATR_' + str(n))
         df = df.join(ATR)
