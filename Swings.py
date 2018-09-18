@@ -53,10 +53,12 @@ class Swing_Generator:
             raise ValueError("One or more required attributes not found in configuration file: " + configfile)
         infile.close()
 
-    def generate_swings(self, backwards=True, num_swings=0):
+    def generate_swings(self, backwards=False, num_swings=0):
         #Setup Stuff
         swing_file = open(self.swing_file, 'w', newline='')
         swing_writer = csv.writer(swing_file, delimiter=',')
+
+        if backwards: self.OHLC_data = self.OHLC_data.iloc[::-1]
 
         OHLC_data = self.Average_True_Range(self.OHLC_data, self.ATR_period).dropna()
         OHLC_data = OHLC_data.rename(columns = {'ATR_' + str(self.ATR_period) : 'ATR'})
@@ -65,8 +67,8 @@ class Swing_Generator:
             eprint("Not enough data to calculate ATR")
             return False
 
-
         row_count = 0
+        swing_count = 0
 
         Pivot_Point = collections.namedtuple('Pivot_Point', ['data', 'row', 'pos'])
         reg_point = Pivot_Point(0,0,0)
@@ -87,10 +89,12 @@ class Swing_Generator:
 
             if current_row[temp_close_var] >= LL_ATR_Limit and (row_count - self.time_factor) > LL[1]:
                 swing_writer.writerow([LL[0]['Date_Time'], LL[0][swings_column_low], "Low", LL[1]]) #write out first swing point
+                if(num_swings > 0): swing_count += 1
                 reg_point = Pivot_Point(current_row, row_count, "High")
                 found_first_swing = True
             elif current_row[temp_close_var] <= HH_ATR_Limit and (row_count - self.time_factor) > HH[1]:
                 swing_writer.writerow([HH[0]['Date_Time'], HH[0][swings_column_high], "High", HH[1]]) #write out first swing point
+                if(num_swings > 0): swing_count += 1
                 reg_point = Pivot_Point(current_row, row_count, "Low")
                 found_first_swing = True
             elif current_row[temp_close_var] < LL[0][temp_close_var]:
@@ -115,7 +119,9 @@ class Swing_Generator:
         ref_column_low = self.ref_column if self.ref_column == "Close" else "Low"
         ref_column_high = self.ref_column if self.ref_column == "Close" else "High"
 
-        while row_count < total_rows:
+        found_enough = False
+
+        while row_count < total_rows and not found_enough:
             current_row = OHLC_data.iloc[row_count]
 
             if reg_point.pos == "High":
@@ -129,6 +135,7 @@ class Swing_Generator:
                         print("Previous REgisted Point: ", reg_point)
 
                     swing_writer.writerow([reg_point.data["Date_Time"], reg_point.data[swings_column_high if reg_point.pos == "High" else swings_column_low], reg_point.pos, reg_point.row]) #write out previous RP as SP
+                    if(num_swings > 0): swing_count += 1
                     reg_point = Pivot_Point(current_row, row_count, "Low") #re-regsiter RP
 
                     if self.DEBUG:
@@ -145,6 +152,7 @@ class Swing_Generator:
                         print("Previous REgisted Point: ", reg_point)
 
                     swing_writer.writerow([reg_point.data["Date_Time"], reg_point.data[swings_column_high if reg_point.pos == "High" else swings_column_low], reg_point.pos, reg_point.row]) #write out previous RP as SP
+                    if(num_swings > 0): swing_count += 1
                     reg_point = Pivot_Point(current_row, row_count, "High") #re-regsiter RP
 
                     if self.DEBUG:
@@ -153,13 +161,32 @@ class Swing_Generator:
                 eprint("Registered point posistion is something other than \"High\" or \"Low\"")
                 return False
 
-            row_count = row_count + 1
+            if num_swings > 0 and swing_count == num_swings: found_enough = True
+            row_count = row_count + 1 #normal operation
+
         ###############################################################################################################
 
 
         swing_writer.writerow([reg_point.data["Date_Time"], reg_point.data[swings_column_high if reg_point.pos == "High" else swings_column_low], reg_point.pos, reg_point.row]) #set last RP as a SP
         swing_file.close()
+
+        if backwards:
+            self.reverse_file()
+            self.OHLC_data = self.OHLC_data.iloc[::-1]
+
         return True
+
+    def reverse_file(self):
+        swing_file = open(self.swing_file, 'r')
+        reversed_lines = []
+        for line in reversed(swing_file.readlines()):
+            reversed_lines.append(line)
+        swing_file.close()
+
+        swing_file = open(self.swing_file, 'w')
+        for line in reversed_lines:
+            swing_file.write(line)
+        swing_file.close()
 
     def Average_True_Range(self, df, n):
         """

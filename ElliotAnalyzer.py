@@ -25,7 +25,9 @@ class Elliot_Analyzer:
         self.OHLC_data = OHLC_data
         self.OHLC_data = self.OHLC_data.set_index('Date_Time')
 
+        print(self.OHLC_data)
         self.OHLC_data =  self.OHLC_data.truncate(before=self.swing_data.iloc[0]['Date_Time'])
+        print(self.OHLC_data)
 
         self.currency_name = currency_name
         self.wave_data = None
@@ -138,6 +140,7 @@ class Elliot_Analyzer:
             eprint("Cannot Export graph: There is no Elliot Wave Data")
             return
         my_swing_data = self.wave_data[0]
+        print('my swing data:', my_swing_data)
 
 
         OHLC_trace = go.Ohlc(x=self.OHLC_data.index,
