@@ -24,8 +24,7 @@ class Swing_Generator:
         self.time_factor = -1
         self.price_factor = 0
 
-        if self.DEBUG:
-            print(self.OHLC_data.tail())
+        if self.DEBUG: logging.debug(self.OHLC_data.tail())
 
         infile = open(configfile, 'r', newline='')
         config_reader = csv.reader(infile, delimiter=',')
@@ -41,10 +40,10 @@ class Swing_Generator:
                 self.price_factor = int(row[1])
 
         if self.DEBUG:
-            print("Reference Column:", self.ref_column)
-            print("ATR period:", self.ATR_period)
-            print("Time Factor:", self.time_factor)
-            print("Price Factor:", self.price_factor)
+            logging.debug("Reference Column:", self.ref_column)
+            logging.debug("ATR period:", self.ATR_period)
+            logging.debug("Time Factor:", self.time_factor)
+            logging.debug("Price Factor:", self.price_factor)
 
         if self.ref_column == "NA" or self.ATR_period == 0 or self.time_factor == -1 or self.price_factor == 0:
             raise ValueError("One or more required attributes not found in configuration file: " + configfile)
@@ -100,8 +99,8 @@ class Swing_Generator:
             return False
 
         if self.DEBUG:
-            print("First Registerd Point", reg_point)
-            print("Current Row Count:", row_count, "\t Total Rows:", total_rows)
+            logging.debug("First Registerd Point", reg_point)
+            logging.debug("Current Row Count:", row_count, "\t Total Rows:", total_rows)
 
 
         #######Find all swings following first swing by looping through prices until finding new RP#######
@@ -115,14 +114,14 @@ class Swing_Generator:
                     reg_point = reg_point._replace(data = current_row, row = row_count)
                 elif current_row[self.ref_column] < violation_price and (row_count - self.time_factor) > reg_point.row: #Violated ATR range in opposite direction
                     if self.DEBUG:
-                        print("Violated ATR in the Low direction. Register a new Low, write out previous RP High as Swing High")
-                        print("Previous REgisted Point: ", reg_point)
+                        logging.debug("Violated ATR in the Low direction. Register a new Low, write out previous RP High as Swing High")
+                        logging.debug("Previous REgisted Point: ", reg_point)
 
                     swing_writer.writerow([reg_point.data["Date_Time"], reg_point.data[self.ref_column], reg_point.pos, reg_point.row]) #write out previous RP as SP
                     reg_point = Pivot_Point(current_row, row_count, "Low") #re-regsiter RP
 
                     if self.DEBUG:
-                        print("New Registed Point: ", reg_point)
+                        logging.debug("New Registed Point: ", reg_point)
 
             elif reg_point.pos == "Low":
                 violation_price = reg_point.data[self.ref_column] + (reg_point.data["ATR"]*self.price_factor)
@@ -131,14 +130,14 @@ class Swing_Generator:
                     reg_point = reg_point._replace(data = current_row, row = row_count)
                 elif current_row[self.ref_column] > violation_price and (row_count - self.time_factor) > reg_point.row: #Violated ATR range in opposite direction
                     if self.DEBUG:
-                        print("Violated ATR in the High direction. Register a new High, write out previous RP low as Swing low")
-                        print("Previous REgisted Point: ", reg_point)
+                        logging.debug("Violated ATR in the High direction. Register a new High, write out previous RP low as Swing low")
+                        logging.debug("Previous REgisted Point: ", reg_point)
 
                     swing_writer.writerow([reg_point.data["Date_Time"], reg_point.data[self.ref_column], reg_point.pos, reg_point.row]) #write out previous RP as SP
                     reg_point = Pivot_Point(current_row, row_count, "High") #re-regsiter RP
 
                     if self.DEBUG:
-                        print("New Registed Point: ", reg_point)
+                        logging.debug("New Registed Point: ", reg_point)
             else:
                 eprint("Registered point posistion is something other than \"High\" or \"Low\"")
                 return False
