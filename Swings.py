@@ -53,7 +53,7 @@ class Swing_Generator:
             raise ValueError("One or more required attributes not found in configuration file: " + configfile)
         infile.close()
 
-    def generate_swings(self):
+    def generate_swings(self, backwards=True, num_swings=0):
         #Setup Stuff
         swing_file = open(self.swing_file, 'w', newline='')
         swing_writer = csv.writer(swing_file, delimiter=',')

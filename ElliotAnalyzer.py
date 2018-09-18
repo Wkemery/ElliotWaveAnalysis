@@ -75,9 +75,8 @@ class Elliot_Analyzer:
         wave2_exrets = self.fib_retracement(wave2_swings[0], wave2_swings[1], wave2_exret_levels)
         combo = {**wave1_apps, **wave2_exrets}
 
-        #check for minimum requirements first
+        #check for minimum requirements first, then typicaL
         wave_min = self.in_range(wave3_price, combo[min(combo, key=combo.get)], combo[max(combo, key=combo.get)])
-        print(combo[min(combo, key=combo.get)],combo[max(combo, key=combo.get)] )
         if wave_min:
             wave_typ = self.in_range(wave3_price, wave1_apps[my_config['app_wave1_typical']], wave2_exrets[my_config['exret_wave2_typical']])
             if wave_typ:
