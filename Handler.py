@@ -7,5 +7,6 @@ sg = Swing_Generator("C:\\Users\\wyatt\\Documents\\ForexData\\AUDCAD\\AUDCAD_H4.
 sg.generate_swings()
 # sg.export_OHLC_graph()
 
-ea = Elliot_Analyzer("swings.csv", sg.OHLC_data.tail(1))
-print(ea.wave2())
+ea = Elliot_Analyzer("AUDCAD_H4", "swings.csv", sg.OHLC_data)
+if(ea.analyze()):
+    ea.export_graph()
