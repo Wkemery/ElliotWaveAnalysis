@@ -65,6 +65,7 @@ class Elliot_Analyzer:
         wave1_swings = (relevant_swings.iloc[0]['Price'], relevant_swings.iloc[1]['Price'])
         wave2_swings = (relevant_swings.iloc[1]['Price'], relevant_swings.iloc[2]['Price'])
         wave3_price = relevant_swings.iloc[3]["Price"]
+        print("Wave3 Price: ", wave3_price)
         wave2_price = relevant_swings.iloc[2]["Price"]
 
         wave1_app_levels = [level for option,level in my_config.items() if option.startswith('app')]
@@ -76,6 +77,7 @@ class Elliot_Analyzer:
 
         #check for minimum requirements first
         wave_min = self.in_range(wave3_price, combo[min(combo, key=combo.get)], combo[max(combo, key=combo.get)])
+        print(combo[min(combo, key=combo.get)],combo[max(combo, key=combo.get)] )
         if wave_min:
             wave_typ = self.in_range(wave3_price, wave1_apps[my_config['app_wave1_typical']], wave2_exrets[my_config['exret_wave2_typical']])
             if wave_typ:
@@ -128,7 +130,7 @@ class Elliot_Analyzer:
 
     def in_range(self, x, range_1, range_2):
         bottom = range_1 if range_1 < range_2 else range_2
-        top = range_1 if range_1 > range_2 else range_1
+        top = range_1 if range_1 > range_2 else range_2
 
         return bottom <= x <= top
 

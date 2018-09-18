@@ -20,11 +20,12 @@ class Swing_Generator:
         self.OHLC_data['Date_Time'] = pd.to_datetime(self.OHLC_data['index'] + ' ' + self.OHLC_data['Date_Time'])
         self.OHLC_data = self.OHLC_data.drop(columns=['index'])
         self.ref_column = "NA"
+        self.swing_column = "NA"
         self.ATR_period = 0
         self.time_factor = -1
         self.price_factor = 0
 
-        if self.DEBUG: logging.debug(self.OHLC_data.tail())
+        if self.DEBUG: print(self.OHLC_data.tail())
 
         infile = open(configfile, 'r', newline='')
         config_reader = csv.reader(infile, delimiter=',')
@@ -38,14 +39,17 @@ class Swing_Generator:
                 self.time_factor = int(row[1])
             elif row[0] == "price_factor":
                 self.price_factor = int(row[1])
+            elif row[0] == "swing_column":
+                self.swing_column = row[1]
 
         if self.DEBUG:
-            logging.debug("Reference Column:", self.ref_column)
-            logging.debug("ATR period:", self.ATR_period)
-            logging.debug("Time Factor:", self.time_factor)
-            logging.debug("Price Factor:", self.price_factor)
+            print("Reference Column:", self.ref_column)
+            print("Swing Column:", self.swing_column)
+            print("ATR period:", self.ATR_period)
+            print("Time Factor:", self.time_factor)
+            print("Price Factor:", self.price_factor)
 
-        if self.ref_column == "NA" or self.ATR_period == 0 or self.time_factor == -1 or self.price_factor == 0:
+        if self.ref_column == "NA" or self.ATR_period == 0 or self.time_factor == -1 or self.price_factor == 0 or self.swing_column == "NA":
             raise ValueError("One or more required attributes not found in configuration file: " + configfile)
         infile.close()
 
@@ -67,31 +71,34 @@ class Swing_Generator:
         Pivot_Point = collections.namedtuple('Pivot_Point', ['data', 'row', 'pos'])
         reg_point = Pivot_Point(0,0,0)
 
+        swings_column_high = self.swing_column if self.swing_column == "Close" else "High"
+        swings_column_low = self.swing_column if self.swing_column == "Close" else "Low"
+        temp_close_var = "Close"
         ####Find first Swing point####
 
         HH = (OHLC_data.iloc[0], 0)
         LL = (OHLC_data.iloc[0], 0)
-        HH_ATR_Limit = HH[0][self.ref_column] - (HH[0]["ATR"]*self.price_factor)
-        LL_ATR_Limit = LL[0][self.ref_column] + (LL[0]["ATR"]*self.price_factor)
+        HH_ATR_Limit = HH[0][temp_close_var] - (HH[0]["ATR"]*self.price_factor)
+        LL_ATR_Limit = LL[0][temp_close_var] + (LL[0]["ATR"]*self.price_factor)
 
         found_first_swing = False
         while not found_first_swing and row_count < total_rows:
             current_row = OHLC_data.iloc[row_count]
 
-            if current_row[self.ref_column] >= LL_ATR_Limit and (row_count - self.time_factor) > LL[1]:
-                swing_writer.writerow([LL[0]['Date_Time'], LL[0][self.ref_column], "Low", LL[1]]) #write out first swing point
+            if current_row[temp_close_var] >= LL_ATR_Limit and (row_count - self.time_factor) > LL[1]:
+                swing_writer.writerow([LL[0]['Date_Time'], LL[0][swings_column_low], "Low", LL[1]]) #write out first swing point
                 reg_point = Pivot_Point(current_row, row_count, "High")
                 found_first_swing = True
-            elif current_row[self.ref_column] <= HH_ATR_Limit and (row_count - self.time_factor) > HH[1]:
-                swing_writer.writerow([HH[0]['Date_Time'], HH[0][self.ref_column], "High", HH[1]]) #write out first swing point
+            elif current_row[temp_close_var] <= HH_ATR_Limit and (row_count - self.time_factor) > HH[1]:
+                swing_writer.writerow([HH[0]['Date_Time'], HH[0][swings_column_high], "High", HH[1]]) #write out first swing point
                 reg_point = Pivot_Point(current_row, row_count, "Low")
                 found_first_swing = True
-            elif current_row[self.ref_column] < LL[0][self.ref_column]:
+            elif current_row[temp_close_var] < LL[0][temp_close_var]:
                 LL = (current_row, row_count)
-                LL_ATR_Limit = LL[0][self.ref_column] + (LL[0]["ATR"]*self.price_factor)
-            elif current_row[self.ref_column] > HH[0][self.ref_column]:
+                LL_ATR_Limit = LL[0][temp_close_var] + (LL[0]["ATR"]*self.price_factor)
+            elif current_row[temp_close_var] > HH[0][temp_close_var]:
                 HH = (current_row, row_count)
-                HH_ATR_Limit = HH[0][self.ref_column] - (HH[0]["ATR"]*self.price_factor)
+                HH_ATR_Limit = HH[0][temp_close_var] - (HH[0]["ATR"]*self.price_factor)
             row_count += 1
 
         if not found_first_swing:
@@ -99,45 +106,49 @@ class Swing_Generator:
             return False
 
         if self.DEBUG:
-            logging.debug("First Registerd Point", reg_point)
-            logging.debug("Current Row Count:", row_count, "\t Total Rows:", total_rows)
+            print("First Registerd Point", reg_point)
+            print("Current Row Count:", row_count, "\t Total Rows:", total_rows)
 
 
         #######Find all swings following first swing by looping through prices until finding new RP#######
+
+        ref_column_low = self.ref_column if self.ref_column == "Close" else "Low"
+        ref_column_high = self.ref_column if self.ref_column == "Close" else "High"
+
         while row_count < total_rows:
             current_row = OHLC_data.iloc[row_count]
 
             if reg_point.pos == "High":
-                violation_price = reg_point.data[self.ref_column] - (reg_point.data["ATR"]*self.price_factor)
+                violation_price = reg_point.data[ref_column_high] - (reg_point.data["ATR"]*self.price_factor)
 
-                if current_row[self.ref_column] > reg_point.data[self.ref_column]: #new extreme with direction
+                if current_row[ref_column_high] > reg_point.data[ref_column_high]: #new extreme with direction
                     reg_point = reg_point._replace(data = current_row, row = row_count)
-                elif current_row[self.ref_column] < violation_price and (row_count - self.time_factor) > reg_point.row: #Violated ATR range in opposite direction
+                elif current_row[ref_column_low] < violation_price and (row_count - self.time_factor) > reg_point.row: #Violated ATR range in opposite direction
                     if self.DEBUG:
-                        logging.debug("Violated ATR in the Low direction. Register a new Low, write out previous RP High as Swing High")
-                        logging.debug("Previous REgisted Point: ", reg_point)
+                        print("Violated ATR in the Low direction. Register a new Low, write out previous RP High as Swing High")
+                        print("Previous REgisted Point: ", reg_point)
 
-                    swing_writer.writerow([reg_point.data["Date_Time"], reg_point.data[self.ref_column], reg_point.pos, reg_point.row]) #write out previous RP as SP
+                    swing_writer.writerow([reg_point.data["Date_Time"], reg_point.data[swings_column_high if reg_point.pos == "High" else swings_column_low], reg_point.pos, reg_point.row]) #write out previous RP as SP
                     reg_point = Pivot_Point(current_row, row_count, "Low") #re-regsiter RP
 
                     if self.DEBUG:
-                        logging.debug("New Registed Point: ", reg_point)
+                        print("New Registed Point: ", reg_point)
 
             elif reg_point.pos == "Low":
-                violation_price = reg_point.data[self.ref_column] + (reg_point.data["ATR"]*self.price_factor)
+                violation_price = reg_point.data[ref_column_low] + (reg_point.data["ATR"]*self.price_factor)
 
-                if current_row[self.ref_column] < reg_point.data[self.ref_column]: #new extreme with direction
+                if current_row[ref_column_low] < reg_point.data[ref_column_low]: #new extreme with direction
                     reg_point = reg_point._replace(data = current_row, row = row_count)
-                elif current_row[self.ref_column] > violation_price and (row_count - self.time_factor) > reg_point.row: #Violated ATR range in opposite direction
+                elif current_row[ref_column_high] > violation_price and (row_count - self.time_factor) > reg_point.row: #Violated ATR range in opposite direction
                     if self.DEBUG:
-                        logging.debug("Violated ATR in the High direction. Register a new High, write out previous RP low as Swing low")
-                        logging.debug("Previous REgisted Point: ", reg_point)
+                        print("Violated ATR in the High direction. Register a new High, write out previous RP low as Swing low")
+                        print("Previous REgisted Point: ", reg_point)
 
-                    swing_writer.writerow([reg_point.data["Date_Time"], reg_point.data[self.ref_column], reg_point.pos, reg_point.row]) #write out previous RP as SP
+                    swing_writer.writerow([reg_point.data["Date_Time"], reg_point.data[swings_column_high if reg_point.pos == "High" else swings_column_low], reg_point.pos, reg_point.row]) #write out previous RP as SP
                     reg_point = Pivot_Point(current_row, row_count, "High") #re-regsiter RP
 
                     if self.DEBUG:
-                        logging.debug("New Registed Point: ", reg_point)
+                        print("New Registed Point: ", reg_point)
             else:
                 eprint("Registered point posistion is something other than \"High\" or \"Low\"")
                 return False
@@ -146,7 +157,7 @@ class Swing_Generator:
         ###############################################################################################################
 
 
-        swing_writer.writerow([reg_point.data["Date_Time"], reg_point.data[self.ref_column], reg_point.pos, reg_point.row]) #set last RP as a SP
+        swing_writer.writerow([reg_point.data["Date_Time"], reg_point.data[swings_column_high if reg_point.pos == "High" else swings_column_low], reg_point.pos, reg_point.row]) #set last RP as a SP
         swing_file.close()
         return True
 
