@@ -21,13 +21,11 @@ class Elliot_Analyzer:
 
         if self.DEBUG: print("Date_Time column on self.swing_data:", self.swing_data.Date_Time)
         if self.DEBUG: print("Very first date:", self.swing_data.iloc[0]['Date_Time'])
-
+        print(self.swing_data)
         self.OHLC_data = OHLC_data
         self.OHLC_data = self.OHLC_data.set_index('Date_Time')
 
-        print(self.OHLC_data)
         self.OHLC_data =  self.OHLC_data.truncate(before=self.swing_data.iloc[0]['Date_Time'])
-        print(self.OHLC_data)
 
         self.currency_name = currency_name
         self.wave_data = None
@@ -51,6 +49,9 @@ class Elliot_Analyzer:
 
         #check for minimum requirements first
         wave_min = self.in_range(wave2_price, wave1_inrets[my_config['inret_wave1_min']], wave1_inrets[my_config['inret_wave1_max']])
+        print("in wave 2 calling self range:", wave2_price)
+        print(wave1_inrets[my_config['inret_wave1_min']])
+        print(wave1_inrets[my_config['inret_wave1_max']])
         if wave_min:
             wave_typ = self.in_range(wave2_price, wave1_inrets[my_config['inret_wave1_typical_min']], wave1_inrets[my_config['inret_wave1_typical_max']])
             if wave_typ:
@@ -61,6 +62,11 @@ class Elliot_Analyzer:
         return wave_min
 
     def wave3(self, swings):
+        #check for wave 2 requirements
+        if not self.wave2(swings.head(3)):
+            print("super fucked")
+            return False
+
         relevant_swings = swings
         my_config = self.config_section_map(self.config, "Wave3")
 
@@ -71,7 +77,7 @@ class Elliot_Analyzer:
 
         wave1_app_levels = [level for option,level in my_config.items() if option.startswith('app')]
         wave2_exret_levels = [level for option,level in my_config.items() if option.startswith('exret')]
-
+        print("Levels:", wave2_exret_levels)
         wave1_apps = self.fib_projection(wave1_swings[0], wave1_swings[1], wave2_price, wave1_app_levels)
         wave2_exrets = self.fib_retracement(wave2_swings[0], wave2_swings[1], wave2_exret_levels)
         combo = {**wave1_apps, **wave2_exrets}
@@ -88,6 +94,11 @@ class Elliot_Analyzer:
         return wave_min
 
     def wave4(self, swings):
+        #check for wave 3 requirements
+        if not self.wave3(swings.head(4)):
+            print("fucked")
+            return False
+
         relevant_swings = swings
         my_config = self.config_section_map(self.config, "Wave4")
 
