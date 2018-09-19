@@ -67,7 +67,6 @@ class Elliot_Analyzer:
         wave1_swings = (relevant_swings.iloc[0]['Price'], relevant_swings.iloc[1]['Price'])
         wave2_swings = (relevant_swings.iloc[1]['Price'], relevant_swings.iloc[2]['Price'])
         wave3_price = relevant_swings.iloc[3]["Price"]
-        print("Wave3 Price: ", wave3_price)
         wave2_price = relevant_swings.iloc[2]["Price"]
 
         wave1_app_levels = [level for option,level in my_config.items() if option.startswith('app')]
@@ -89,7 +88,42 @@ class Elliot_Analyzer:
         return wave_min
 
     def wave4(self, swings):
-        return False
+        relevant_swings = swings
+        my_config = self.config_section_map(self.config, "Wave4")
+
+        wave1_swings = (relevant_swings.iloc[0]['Price'], relevant_swings.iloc[1]['Price'])
+        wave3_swings = (relevant_swings.iloc[2]['Price'], relevant_swings.iloc[3]['Price'])
+
+        wave4_price = relevant_swings.iloc[4]["Price"]
+        print("Wave4 Price: ", wave4_price)
+
+        wave3_ret_levels = [level for option,level in my_config.items() if option.startswith('ret_wave3')]
+        wave1_3_ret_levels = [level for option,level in my_config.items() if option.startswith('ret_wave1_3')]
+
+
+        wave3_rets = self.fib_retracement(wave3_swings[0], wave3_swings[1], wave3_ret_levels)
+        wave1_3_rets = self.fib_retracement(wave1_swings[0], wave3_swings[1], wave1_3_ret_levels)
+        combo = {**wave3_rets, **wave1_3_rets}
+
+        #check for minimum requirements first, then typicaL
+        violated = True
+        if relevant_swings.iloc[4]["Pos"] == "Low":
+            violated = wave4_price > self.OHLC_data.loc[relevant_swings.iloc[1]['Date_Time']]["Close"]
+        else:
+            violated = wave4_price < self.OHLC_data.loc[relevant_swings.iloc[1]['Date_Time']]["Close"]
+
+        print("minimum ret price: ", combo[min(combo, key=combo.get)])
+        print("maximum ret price: ", combo[max(combo, key=combo.get)])
+
+        wave_min = self.in_range(wave4_price, combo[min(combo, key=combo.get)], combo[max(combo, key=combo.get)]) and not violated
+        if wave_min:
+            wave_typ = self.in_range(wave4_price, wave3_rets[my_config['ret_wave3_min']], wave3_rets[my_config['ret_wave3_typical']])
+            if wave_typ:
+                self.wave_data = (relevant_swings, "Typical")
+            else:
+                self.wave_data = (relevant_swings, "Minimum")
+
+        return wave_min
 
     def wave5(self, swings):
         return False

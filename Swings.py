@@ -176,6 +176,9 @@ class Swing_Generator:
 
         return True
 
+    def update_swings():
+        return
+
     def reverse_file(self):
         swing_file = open(self.swing_file, 'r')
         reversed_lines = []
