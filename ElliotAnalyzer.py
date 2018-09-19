@@ -83,6 +83,9 @@ class Elliot_Analyzer:
         combo = {**wave1_apps, **wave2_exrets}
 
         #check for minimum requirements first, then typicaL
+        print("range test:", wave3_price)
+        print(combo[min(combo, key=combo.get)])
+        print(combo[max(combo, key=combo.get)])
         wave_min = self.in_range(wave3_price, combo[min(combo, key=combo.get)], combo[max(combo, key=combo.get)])
         if wave_min:
             wave_typ = self.in_range(wave3_price, wave1_apps[my_config['app_wave1_typical']], wave2_exrets[my_config['exret_wave2_typical']])
@@ -106,7 +109,6 @@ class Elliot_Analyzer:
         wave3_swings = (relevant_swings.iloc[2]['Price'], relevant_swings.iloc[3]['Price'])
 
         wave4_price = relevant_swings.iloc[4]["Price"]
-        print("Wave4 Price: ", wave4_price)
 
         wave3_ret_levels = [level for option,level in my_config.items() if option.startswith('ret_wave3')]
         wave1_3_ret_levels = [level for option,level in my_config.items() if option.startswith('ret_wave1_3')]
@@ -119,14 +121,12 @@ class Elliot_Analyzer:
         #check for minimum requirements first, then typicaL
         violated = True
         if relevant_swings.iloc[4]["Pos"] == "Low":
-            violated = wave4_price > self.OHLC_data.loc[relevant_swings.iloc[1]['Date_Time']]["Close"]
-        else:
             violated = wave4_price < self.OHLC_data.loc[relevant_swings.iloc[1]['Date_Time']]["Close"]
-
-        print("minimum ret price: ", combo[min(combo, key=combo.get)])
-        print("maximum ret price: ", combo[max(combo, key=combo.get)])
+        else:
+            violated = wave4_price > self.OHLC_data.loc[relevant_swings.iloc[1]['Date_Time']]["Close"]
 
         wave_min = self.in_range(wave4_price, combo[min(combo, key=combo.get)], combo[max(combo, key=combo.get)]) and not violated
+
         if wave_min:
             wave_typ = self.in_range(wave4_price, wave3_rets[my_config['ret_wave3_min']], wave3_rets[my_config['ret_wave3_typical']])
             if wave_typ:

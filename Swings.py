@@ -38,7 +38,7 @@ class Swing_Generator:
             elif row[0] == "time_factor":
                 self.time_factor = int(row[1])
             elif row[0] == "price_factor":
-                self.price_factor = int(row[1])
+                self.price_factor = float(row[1])
             elif row[0] == "swing_column":
                 self.swing_column = row[1]
 
