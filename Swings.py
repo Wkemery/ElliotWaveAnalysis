@@ -124,15 +124,15 @@ class Swing_Generator:
         ref_column_high = self.ref_column if self.ref_column == "Close" else "High"
 
         found_enough = False
-        dbg = open("temp_debug.txt", 'w')
+        # dbg = open("temp_debug.txt", 'w')
         while row_count < total_rows and not found_enough:
             current_row = OHLC_data.iloc[row_count]
 
             if reg_point.pos == "High":
                 violation_price = reg_point.data[ref_column_high] - (reg_point.data["ATR"]*self.price_factor)
-                dbg.write("violation_price: " + str(violation_price) + "\n")
-                dbg.write("current row: " + str(current_row) + "\n")
-                dbg.write("current reg point: " + str(reg_point) + "\n")
+                # dbg.write("violation_price: " + str(violation_price) + "\n")
+                # dbg.write("current row: " + str(current_row) + "\n")
+                # dbg.write("current reg point: " + str(reg_point) + "\n")
 
                 if current_row[ref_column_high] > reg_point.data[ref_column_high]: #new extreme with direction
                     reg_point = reg_point._replace(data = current_row, row = row_count)
@@ -151,9 +151,9 @@ class Swing_Generator:
 
             elif reg_point.pos == "Low":
                 violation_price = reg_point.data[ref_column_low] + (reg_point.data["ATR"]*self.price_factor)
-                dbg.write("violation_price: " + str(violation_price) + "\n")
-                dbg.write("current row: " + str(current_row) + "\n")
-                dbg.write("current reg point: " +  str(reg_point) + "\n")
+                # dbg.write("violation_price: " + str(violation_price) + "\n")
+                # dbg.write("current row: " + str(current_row) + "\n")
+                # dbg.write("current reg point: " +  str(reg_point) + "\n")
 
                 if current_row[ref_column_low] < reg_point.data[ref_column_low]: #new extreme with direction
                     reg_point = reg_point._replace(data = current_row, row = row_count)
@@ -228,8 +228,6 @@ class Swing_Generator:
                 ATR_l.append((ATR_l[i - 1] * (n - 1) + TR_l[i]) / n)
 
         ATR_df = pd.DataFrame({'ATR':TR_l})
-        print(ATR_df)
-        print(df)
         df = df.join(ATR_df)
         return df
 
