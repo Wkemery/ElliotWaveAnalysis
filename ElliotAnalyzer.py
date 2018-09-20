@@ -19,8 +19,7 @@ class Elliot_Analyzer:
         self.swing_data = pd.read_csv(swing_file, names=['Date_Time', 'Price', 'Pos', 'Row']).tail(6)
         self.swing_data['Date_Time'] = pd.to_datetime(self.swing_data['Date_Time'])
 
-        if self.DEBUG: print("Date_Time column on self.swing_data:", self.swing_data.Date_Time)
-        if self.DEBUG: print("Very first date:", self.swing_data.iloc[0]['Date_Time'])
+        print("All the Swing Data")
         print(self.swing_data)
         self.OHLC_data = OHLC_data
         self.OHLC_data = self.OHLC_data.set_index('Date_Time')
@@ -59,12 +58,13 @@ class Elliot_Analyzer:
             else:
                 self.wave_data = (relevant_swings, "Minimum")
 
+
         return wave_min
 
     def wave3(self, swings):
         #check for wave 2 requirements
         if not self.wave2(swings.head(3)):
-            print("super fucked")
+            if self.DEBUG: print("Failed Wave2 on downward call")
             return False
 
         relevant_swings = swings
@@ -99,7 +99,7 @@ class Elliot_Analyzer:
     def wave4(self, swings):
         #check for wave 3 requirements
         if not self.wave3(swings.head(4)):
-            print("fucked")
+            if self.DEBUG: print("Failed Wave3 on downward call")
             return False
 
         relevant_swings = swings
@@ -137,7 +137,61 @@ class Elliot_Analyzer:
         return wave_min
 
     def wave5(self, swings):
-        return False
+        if not self.wave4(swings.head(5)):
+            if self.DEBUG : print("Failed Wave4 on downward call")
+            return False
+
+        relevant_swings = swings
+        my_config = self.config_section_map(self.config, "Wave4")
+
+        wave1_swings = (relevant_swings.iloc[0]['Price'], relevant_swings.iloc[1]['Price'])
+        wave3_swings = (relevant_swings.iloc[2]['Price'], relevant_swings.iloc[3]['Price'])
+        wave4_swings = (relevant_swings.iloc[3]['Price'], relevant_swings.iloc[4]['Price'])
+        wave5_swings = (relevant_swings.iloc[4]['Price'], relevant_swings.iloc[5]['Price'])
+
+        wave4_price = relevant_swings.iloc[4]["Price"]
+
+        wave1_3_app_levels = [level for option,level in my_config.items() if option.startswith('app_wave1_3')]
+        wave1_app_levels = [level for option,level in my_config.items() if option.startswith('app_wave1')]
+        wave4_exret_levels = [level for option,level in my_config.items() if option.startswith('exret_wave4')]
+
+        wave1_3_apps = self.fib_projection(wave1_swings[0], wave3_swings[1], wave4_price, wave1_3_app_levels)
+        wave1_apps = self.fib_projection(wave1_swings[0], wave1_swings[1], wave4_price, wave1_app_levels)
+        wave4_exrets = self.fib_retracement(wave4_swings[0], wave4_swings[1], wave4_exret_levels)
+        combo = {**wave1_3_apps, **wave1_apps, **wave4_exrets}
+
+        #violation condition is wave 3 shortest wave TODO
+        violated = False
+        wave1_magnitude = abs(wave1_swings[0] - wave1_swings[1])
+        wave3_magnitude = abs(wave3_swings[0] - wave3_swings[1])
+        wave5_magnitude = abs(wave5_swings[0] - wave5_swings[1])
+
+        if (wave3_magnitude < wave1_magnitude) and (wave3_magnitude < wave5_magnitude):
+            violated = True
+
+        wave_min = not violated
+        if relevant_swings.iloc[5]["Pos"] == "High":
+            wave_min = wave_min and wave5_price > combo[min(combo, key=combo.get)]
+        else:
+            wave_min = wave_min and wave5_price <  combo[max(combo, key=combo.get)]
+
+        if wave_min:
+            price_in_wave1_3 = self.in_range(wave5_price, wave1_3_apps[my_config['app_wave1_3_min']], wave1_3_apps[my_config['app_wave1_3_typical']])
+            wave1_in_wave1_3 = self.in_range(wave1_apps[my_config["app_wave_1"]], wave1_3_apps[my_config['app_wave1_3_min']], wave1_3_apps[my_config['app_wave1_3_typical']])
+            price_in_wave_4 = self.in_range(wave5_price, wave4_exrets[my_config['exret_wave4_min']], wave4_exrets[my_config['exret_wave4_typical']])
+            wave1_in_wave4 = self.in_range(wave1_apps[my_config["app_wave_1"]], wave4_exrets[my_config['exret_wave4_min']], wave4_exrets[my_config['exret_wave4_typical']])
+            wave_high_prob = price_in_wave1_3 and price_in_wave_4 and wave1_in_wave1_3 and wave1_in_wave4
+
+            if wave_high_prob:
+                self.wave_data = (relevant_swings, "HighProbability")
+            else:
+                wave_typ = (price_in_wave1_3 and wave1_in_wave1_3) or (price_in_wave1_3 and price_in_wave_4) or (price_in_wave_4 and wave1_in_wave4)
+            if wave_typ:
+                self.wave_data = (relevant_swings, "Typical")
+            else:
+                self.wave_data = (relevant_swings, "Minimum")
+
+        return wave_min
 
     def waveA(self, swings):
         return False

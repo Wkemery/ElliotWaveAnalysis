@@ -3,6 +3,7 @@ import collections
 import copy
 import csv
 from Error import *
+import numpy as np
 
 import plotly.plotly  as py
 import plotly.offline as offline
@@ -72,6 +73,7 @@ class Swing_Generator:
 
         Pivot_Point = collections.namedtuple('Pivot_Point', ['data', 'row', 'pos'])
         reg_point = Pivot_Point(0,0,0)
+        swing_point = Pivot_Point(0,0,0)
 
         swings_column_high = self.swing_column if self.swing_column == "Close" else "High"
         swings_column_low = self.swing_column if self.swing_column == "Close" else "Low"
@@ -89,11 +91,13 @@ class Swing_Generator:
 
             if current_row[temp_close_var] >= LL_ATR_Limit and (row_count - self.time_factor) > LL[1]:
                 swing_writer.writerow([LL[0]['Date_Time'], LL[0][swings_column_low], "Low", LL[1]]) #write out first swing point
+                swing_point = copy.deepcopy(reg_point)
                 if(num_swings > 0): swing_count += 1
                 reg_point = Pivot_Point(current_row, row_count, "High")
                 found_first_swing = True
             elif current_row[temp_close_var] <= HH_ATR_Limit and (row_count - self.time_factor) > HH[1]:
                 swing_writer.writerow([HH[0]['Date_Time'], HH[0][swings_column_high], "High", HH[1]]) #write out first swing point
+                swing_point = copy.deepcopy(reg_point)
                 if(num_swings > 0): swing_count += 1
                 reg_point = Pivot_Point(current_row, row_count, "Low")
                 found_first_swing = True
@@ -120,21 +124,25 @@ class Swing_Generator:
         ref_column_high = self.ref_column if self.ref_column == "Close" else "High"
 
         found_enough = False
-
+        dbg = open("temp_debug.txt", 'w')
         while row_count < total_rows and not found_enough:
             current_row = OHLC_data.iloc[row_count]
 
             if reg_point.pos == "High":
                 violation_price = reg_point.data[ref_column_high] - (reg_point.data["ATR"]*self.price_factor)
+                dbg.write("violation_price: " + str(violation_price) + "\n")
+                dbg.write("current row: " + str(current_row) + "\n")
+                dbg.write("current reg point: " + str(reg_point) + "\n")
 
                 if current_row[ref_column_high] > reg_point.data[ref_column_high]: #new extreme with direction
                     reg_point = reg_point._replace(data = current_row, row = row_count)
-                elif current_row[ref_column_low] < violation_price and (row_count - self.time_factor) > reg_point.row: #Violated ATR range in opposite direction
+                elif current_row[ref_column_low] < violation_price and (row_count - self.time_factor) > swing_point.row: #Violated ATR range in opposite direction
                     if self.DEBUG:
                         print("Violated ATR in the Low direction. Register a new Low, write out previous RP High as Swing High")
                         print("Previous REgisted Point: ", reg_point)
 
                     swing_writer.writerow([reg_point.data["Date_Time"], reg_point.data[swings_column_high if reg_point.pos == "High" else swings_column_low], reg_point.pos, reg_point.row]) #write out previous RP as SP
+                    swing_point = copy.deepcopy(reg_point)
                     if(num_swings > 0): swing_count += 1
                     reg_point = Pivot_Point(current_row, row_count, "Low") #re-regsiter RP
 
@@ -143,15 +151,19 @@ class Swing_Generator:
 
             elif reg_point.pos == "Low":
                 violation_price = reg_point.data[ref_column_low] + (reg_point.data["ATR"]*self.price_factor)
+                dbg.write("violation_price: " + str(violation_price) + "\n")
+                dbg.write("current row: " + str(current_row) + "\n")
+                dbg.write("current reg point: " +  str(reg_point) + "\n")
 
                 if current_row[ref_column_low] < reg_point.data[ref_column_low]: #new extreme with direction
                     reg_point = reg_point._replace(data = current_row, row = row_count)
-                elif current_row[ref_column_high] > violation_price and (row_count - self.time_factor) > reg_point.row: #Violated ATR range in opposite direction
+                elif current_row[ref_column_high] > violation_price and (row_count - self.time_factor) > swing_point.row: #Violated ATR range in opposite direction
                     if self.DEBUG:
                         print("Violated ATR in the High direction. Register a new High, write out previous RP low as Swing low")
                         print("Previous REgisted Point: ", reg_point)
 
                     swing_writer.writerow([reg_point.data["Date_Time"], reg_point.data[swings_column_high if reg_point.pos == "High" else swings_column_low], reg_point.pos, reg_point.row]) #write out previous RP as SP
+                    swing_point = copy.deepcopy(reg_point)
                     if(num_swings > 0): swing_count += 1
                     reg_point = Pivot_Point(current_row, row_count, "High") #re-regsiter RP
 
@@ -198,15 +210,27 @@ class Swing_Generator:
         :return: pandas.DataFrame
         """
         i = 1
-        TR_l = [0]
+        TR_l = [df.iloc[0]['High'] - df.iloc[0]['Low']]
         rows = len(df.index)
         while i < rows:
             TR = max(df.iloc[i]['High'] - df.iloc[i]['Low'], abs(df.iloc[i]['High'] - df.iloc[i-1]['Close']), abs(df.iloc[i]['Low'] - df.iloc[i-1]['Close']))
             TR_l.append(TR)
             i += 1
-        TR_s = pd.Series(TR_l)
-        ATR = pd.Series(TR_s.ewm(span=n, min_periods=n).mean(), name='ATR_' + str(n))
-        df = df.join(ATR)
+        ATR_df = pd.DataFrame({'col':TR_l})
+        ATR_l = []
+        for i in range(len(TR_l)):
+            if i < n:
+                if i == (n - 1):
+                    ATR_l.append(np.mean(TR_l[:n]))
+                else:
+                    ATR_l.append(0)
+            else:
+                ATR_l.append((ATR_l[i - 1] * (n - 1) + TR_l[i]) / n)
+
+        ATR_df = pd.DataFrame({'ATR':TR_l})
+        print(ATR_df)
+        print(df)
+        df = df.join(ATR_df)
         return df
 
     def graph_OHLC(self):
