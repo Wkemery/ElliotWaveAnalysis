@@ -137,12 +137,12 @@ class Elliot_Analyzer:
         return wave_min
 
     def wave5(self, swings):
-        if not self.wave4(swings.head(5)):
-            if self.DEBUG : print("Failed Wave4 on downward call")
-            return False
+        # if not self.wave4(swings.head(5)):
+        #     if self.DEBUG : print("Failed Wave4 on downward call")
+        #     return False
 
         relevant_swings = swings
-        my_config = self.config_section_map(self.config, "Wave4")
+        my_config = self.config_section_map(self.config, "Wave5")
 
         wave1_swings = (relevant_swings.iloc[0]['Price'], relevant_swings.iloc[1]['Price'])
         wave3_swings = (relevant_swings.iloc[2]['Price'], relevant_swings.iloc[3]['Price'])
@@ -150,11 +150,12 @@ class Elliot_Analyzer:
         wave5_swings = (relevant_swings.iloc[4]['Price'], relevant_swings.iloc[5]['Price'])
 
         wave4_price = relevant_swings.iloc[4]["Price"]
+        wave5_price = relevant_swings.iloc[5]["Price"]
 
         wave1_3_app_levels = [level for option,level in my_config.items() if option.startswith('app_wave1_3')]
         wave1_app_levels = [level for option,level in my_config.items() if option.startswith('app_wave1')]
         wave4_exret_levels = [level for option,level in my_config.items() if option.startswith('exret_wave4')]
-
+        print(wave1_3_app_levels,wave1_app_levels,wave4_exret_levels)
         wave1_3_apps = self.fib_projection(wave1_swings[0], wave3_swings[1], wave4_price, wave1_3_app_levels)
         wave1_apps = self.fib_projection(wave1_swings[0], wave1_swings[1], wave4_price, wave1_app_levels)
         wave4_exrets = self.fib_retracement(wave4_swings[0], wave4_swings[1], wave4_exret_levels)
@@ -239,6 +240,7 @@ class Elliot_Analyzer:
             eprint("Cannot Export graph: There is no Elliot Wave Data")
             return
         my_swing_data = self.wave_data[0]
+        self.OHLC_data =  self.OHLC_data.truncate(before=my_swing_data.iloc[0]['Date_Time'])
         print('my swing data:', my_swing_data)
 
 
