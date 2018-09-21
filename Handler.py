@@ -2,14 +2,13 @@ import pandas as pd
 from Swings import *
 from ElliotAnalyzer import *
 
-# sg = Swing_Generator("C:\\Users\\wyatt\\Documents\\ForexData\\NZDCHF\\NZDCHF_H4.csv", "swings.csv")
-# sg = Swing_Generator("testdatasmall.csv", "swings.csv")
-# sg.generate_swings()
+sg = Swing_Generator("C:\\Users\\wyatt\\Documents\\ForexData\\NZDCHF\\NZDCHF_H4.csv", "swings.csv")
+sg.generate_swings()
 # sg.export_OHLC_graph()
 
 # sg = Swing_Generator("testdatabig.csv", "swings.csv")
 # sg.update_swings()
 # sg.export_OHLC_graph()
-# ea = Elliot_Analyzer("NZDCHF_H4", "swings.csv", sg.OHLC_data)
-# if(ea.analyze()):
-#     ea.export_graph()
+ea = Elliot_Analyzer("NZDCHF_H4", "swings.csv", sg.OHLC_data)
+if(ea.analyze()):
+    ea.export_graph()

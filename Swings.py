@@ -21,9 +21,7 @@ class Swing_Generator:
         self.swing_writer = None
         self.data_file = data_file
         self.OHLC_data = pd.read_csv(self.data_file, names=['Date_Time', 'Open', 'High', 'Low', 'Close'])
-        self.OHLC_data = self.OHLC_data.reset_index(drop=False)
-        self.OHLC_data['Date_Time'] = pd.to_datetime(self.OHLC_data['index'] + ' ' + self.OHLC_data['Date_Time'])
-        self.OHLC_data = self.OHLC_data.drop(columns=['index'])
+        self.OHLC_data['Date_Time'] = pd.to_datetime(self.OHLC_data['Date_Time'])
         self.ref_column = "NA"
         self.ATR_period = 0
         self.time_factor = -1
