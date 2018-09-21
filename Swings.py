@@ -56,6 +56,7 @@ class Swing_Generator:
 
         self.swings_column_high = swing_column if swing_column == "Close" else "High"
         self.swings_column_low = swing_column if swing_column == "Close" else "Low"
+        self.OHLC_data = self.Average_True_Range(self.OHLC_data, self.ATR_period)
 
         if self.ref_column == "NA" or self.ATR_period == 0 or self.time_factor == -1 or self.price_factor == 0 or swing_column == "NA":
             raise ValueError("One or more required attributes not found in configuration file: " + configfile)
@@ -68,7 +69,6 @@ class Swing_Generator:
 
         if backwards: self.OHLC_data = self.OHLC_data.iloc[::-1]
 
-        self.OHLC_data = self.Average_True_Range(self.OHLC_data, self.ATR_period)
         #OHLC_data = OHLC_data.rename(columns = {'ATR_' + str(self.ATR_period) : 'ATR'})
         total_rows = len(self.OHLC_data.index)
         if total_rows == 0:
@@ -136,30 +136,23 @@ class Swing_Generator:
 
     def update_swings(self):
         swing_file = open(self.swing_file, 'r', newline='')
+
         lines = swing_file.readlines()
         swing_file.close()
         last_swing = lines[-2]
         last_reg = lines[-1]
 
         date_time, price, pos, row = last_swing.split(',')
-        swing_point = Pivot_Point(self.OHLC_data[datetime.strptime(date_time, '%Y-%m-%d %H:%M:%S')], pos, row)
-        print("Swing Point!!!!:", swing_point)
-        exit()
-        reg_point = Pivot_Point(0,0,0)
+        swing_point = Pivot_Point(self.OHLC_data.iloc[int(row)], int(row), pos)
 
+        date_time, price, pos, row = last_reg.split(',')
+        reg_point = Pivot_Point(self.OHLC_data.iloc[int(row)], int(row), pos)
+        row_count = reg_point.row + 1
 
-        last_swing = pd.read_csv(self.swing_file, names=['Date_Time', 'Price', 'Pos', 'Row']).iloc[-2]
-        last_swing['Date_Time'] = pd.to_datetime(last_swing['Date_Time'])
-
-
-        swing_point.data['Date_Time'] = pd.to_datetime(swing_point.data['Date_Time'])
-
-        swing_file.close()
-        swing_point =  lineList[-1]
-
+        swing_file = open(self.swing_file, 'a', newline='')
         self.swing_writer = csv.writer(swing_file, delimiter=',')
 
-        calculate_remaining_swings(swing_point, reg_point, row_count)
+        self.calculate_remaining_swings(swing_point, reg_point, row_count)
         swing_file.close()
 
 
