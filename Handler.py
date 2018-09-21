@@ -7,9 +7,9 @@ from ElliotAnalyzer import *
 # sg.generate_swings()
 # sg.export_OHLC_graph()
 
-sg = Swing_Generator("testdatabig.csv", "swings.csv")
-sg.update_swings()
-sg.export_OHLC_graph()
+# sg = Swing_Generator("testdatabig.csv", "swings.csv")
+# sg.update_swings()
+# sg.export_OHLC_graph()
 # ea = Elliot_Analyzer("NZDCHF_H4", "swings.csv", sg.OHLC_data)
 # if(ea.analyze()):
 #     ea.export_graph()
