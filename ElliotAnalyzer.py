@@ -8,6 +8,8 @@ import plotly.plotly  as py
 import plotly.offline as offline
 import plotly.graph_objs as go
 
+#TODO: change the whole wave_data thing to maybe a list and return that list along with summary_analysis in analyze()
+
 class Elliot_Analyzer:
     DEBUG = True
 
@@ -30,12 +32,24 @@ class Elliot_Analyzer:
         self.wave_data = None
 
     def analyze(self):
-        if not self.wave5(self.swing_data.tail(6)):
-            if not self.wave4(self.swing_data.tail(5)):
-                if not self.wave3(self.swing_data.tail(4)):
-                    if not self.wave2(self.swing_data.tail(3)):
-                        return False
-        return True
+        analysis_summary = []
+
+        #Wave 5 analysis
+        if self.wave5(self.swing_data.tail(6)):
+            analysis_summary.append("Wave 5")
+        elif self.wave4(self.swing_data.tail(5)):
+            analysis_summary.append("Wave 4")
+        elif self.wave3(self.swing_data.tail(4)):
+            analysis_summary.append("Wave 3")
+        elif self.wave2(self.swing_data.tail(3)):
+            analysis_summary.append("Wave 2")
+
+        #wave c
+        if self.waveC(self.swing_data.tail(4)):
+            analysis_summary.append("Wave C")
+
+        # if self.gartley(self.swing_data.tail(4)) something like this for other analysis
+        return analysis_summary
 
     def wave2(self, swings):
 
@@ -137,9 +151,9 @@ class Elliot_Analyzer:
         return wave_min
 
     def wave5(self, swings):
-        # if not self.wave4(swings.head(5)):
-        #     if self.DEBUG : print("Failed Wave4 on downward call")
-        #     return False
+        if not self.wave4(swings.head(5)):
+            if self.DEBUG : print("Failed Wave4 on downward call")
+            return False
 
         relevant_swings = swings
         my_config = self.config_section_map(self.config, "Wave5")
@@ -235,7 +249,7 @@ class Elliot_Analyzer:
 
         return bottom <= x <= top
 
-    def export_graph(self):
+    def export_graph(self, output_file):
         if self.wave_data is None:
             eprint("Cannot Export graph: There is no Elliot Wave Data")
             return
@@ -280,7 +294,8 @@ class Elliot_Analyzer:
                         type="category"))
 
         fig = go.Figure(data=data, layout=layout)
-        offline.plot(fig, output_type='file',filename=self.currency_name + ".html", image='png', image_filename=self.currency_name)
+        # offline.plot(fig, output_type='file',filename=self.currency_name + ".html", image='png', image_filename=self.currency_name)
+        offline.plot(fig, output_type='file',filename=output_file, auto_open=False)
 
     def config_section_map(self, config, section):
         dict1 = {}
