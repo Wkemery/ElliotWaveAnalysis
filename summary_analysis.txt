@@ -1,0 +1,2 @@
+AUDCAD_H1	['Wave 3']
+AUDCAD_D	['Wave 2']

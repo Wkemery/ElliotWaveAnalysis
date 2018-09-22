@@ -146,8 +146,6 @@ class Swing_Generator:
         reg_point = Pivot_Point(self.OHLC_data.loc[datetime_reg], int(last_reg.row), last_reg.pos)
 
         # Check for any update at all.
-        print(self.OHLC_data.loc[datetime_reg]["Date_Time"])
-        print(self.OHLC_data.tail(1).iloc[0]["Date_Time"])
         if (self.OHLC_data.loc[datetime_reg]["Date_Time"]) == (self.OHLC_data.tail(1).iloc[0]["Date_Time"]):
             return
         #Set up all vars for remaning swings calculation

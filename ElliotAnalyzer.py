@@ -7,27 +7,30 @@ import configparser
 import plotly.plotly  as py
 import plotly.offline as offline
 import plotly.graph_objs as go
-
+DT_FORMAT = "%Y-%m-%d %H:%M:%S"
 #TODO: change the whole wave_data thing to maybe a list and return that list along with summary_analysis in analyze()
 
 class Elliot_Analyzer:
-    DEBUG = True
+    DEBUG = False
 
-    def __init__(self, currency_name, swing_file, OHLC_data, config_file="AnalyzerConfig.conf"):
+    def __init__(self, currency_name, swing_file, OHLC_data_file, config_file="AnalyzerConfig.conf"):
         #read in configFile
         self.config = configparser.ConfigParser()
         self.config.read(config_file)
 
         self.swing_data = pd.read_csv(swing_file, names=['Date_Time', 'Price', 'Pos', 'Row']).tail(6)
-        self.swing_data['Date_Time'] = pd.to_datetime(self.swing_data['Date_Time'])
+        self.swing_data['Date_Time'] = pd.to_datetime(self.swing_data['Date_Time'], format=DT_FORMAT)
 
-        print("All the Swing Data")
-        print(self.swing_data)
-        self.OHLC_data = OHLC_data
+        if self.DEBUG: print("All the Swing Data")
+        if self.DEBUG: print(self.swing_data)
+        last_swing_row = self.swing_data.iloc[0]["Row"]
+        self.OHLC_data = pd.read_csv(OHLC_data_file, names=['Date_Time', 'Open', 'High', 'Low', 'Close'], skiprows=last_swing_row)
+        self.OHLC_data['Date_Time'] = pd.to_datetime(self.OHLC_data['Date_Time'], format=DT_FORMAT)
         self.OHLC_data = self.OHLC_data.set_index('Date_Time')
 
-        self.OHLC_data =  self.OHLC_data.truncate(before=self.swing_data.iloc[0]['Date_Time'])
-
+        # self.OHLC_data = self.OHLC_data.truncate(before=self.swing_data.iloc[0]['Date_Time'])
+        if self.DEBUG: print("OHLCDATA")
+        if self.DEBUG: print(self.OHLC_data)
         self.currency_name = currency_name
         self.wave_data = None
 
@@ -62,9 +65,6 @@ class Elliot_Analyzer:
 
         #check for minimum requirements first
         wave_min = self.in_range(wave2_price, wave1_inrets[my_config['inret_wave1_min']], wave1_inrets[my_config['inret_wave1_max']])
-        print("in wave 2 calling self range:", wave2_price)
-        print(wave1_inrets[my_config['inret_wave1_min']])
-        print(wave1_inrets[my_config['inret_wave1_max']])
         if wave_min:
             wave_typ = self.in_range(wave2_price, wave1_inrets[my_config['inret_wave1_typical_min']], wave1_inrets[my_config['inret_wave1_typical_max']])
             if wave_typ:
@@ -91,15 +91,11 @@ class Elliot_Analyzer:
 
         wave1_app_levels = [level for option,level in my_config.items() if option.startswith('app')]
         wave2_exret_levels = [level for option,level in my_config.items() if option.startswith('exret')]
-        print("Levels:", wave2_exret_levels)
         wave1_apps = self.fib_projection(wave1_swings[0], wave1_swings[1], wave2_price, wave1_app_levels)
         wave2_exrets = self.fib_retracement(wave2_swings[0], wave2_swings[1], wave2_exret_levels)
         combo = {**wave1_apps, **wave2_exrets}
 
         #check for minimum requirements first, then typicaL
-        print("range test:", wave3_price)
-        print(combo[min(combo, key=combo.get)])
-        print(combo[max(combo, key=combo.get)])
         wave_min = self.in_range(wave3_price, combo[min(combo, key=combo.get)], combo[max(combo, key=combo.get)])
         if wave_min:
             wave_typ = self.in_range(wave3_price, wave1_apps[my_config['app_wave1_typical']], wave2_exrets[my_config['exret_wave2_typical']])
@@ -169,7 +165,7 @@ class Elliot_Analyzer:
         wave1_3_app_levels = [level for option,level in my_config.items() if option.startswith('app_wave1_3')]
         wave1_app_levels = [level for option,level in my_config.items() if option.startswith('app_wave1')]
         wave4_exret_levels = [level for option,level in my_config.items() if option.startswith('exret_wave4')]
-        print(wave1_3_app_levels,wave1_app_levels,wave4_exret_levels)
+
         wave1_3_apps = self.fib_projection(wave1_swings[0], wave3_swings[1], wave4_price, wave1_3_app_levels)
         wave1_apps = self.fib_projection(wave1_swings[0], wave1_swings[1], wave4_price, wave1_app_levels)
         wave4_exrets = self.fib_retracement(wave4_swings[0], wave4_swings[1], wave4_exret_levels)
@@ -254,7 +250,6 @@ class Elliot_Analyzer:
             eprint("Cannot Export graph: There is no Elliot Wave Data")
             return
         my_swing_data = self.wave_data[0]
-        self.OHLC_data =  self.OHLC_data.truncate(before=my_swing_data.iloc[0]['Date_Time'])
         print('my swing data:', my_swing_data)
 
 
