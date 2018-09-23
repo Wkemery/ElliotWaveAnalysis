@@ -17,7 +17,7 @@ DT_FORMAT = "%Y-%m-%d %H:%M:%S"
 class Swing_Generator:
     DEBUG = False
 
-    def __init__(self, data_file, swing_file, configfile="SwingConfig.conf"):
+    def __init__(self, data_file, swing_file, config_data):
         self.swing_file = swing_file
         self.swing_writer = None
         self.data_file = data_file
@@ -29,20 +29,11 @@ class Swing_Generator:
         swing_column = None
         if self.DEBUG: print(self.OHLC_data.tail())
 
-        infile = open(configfile, 'r', newline='')
-        config_reader = csv.reader(infile, delimiter=',')
-        next(config_reader)
-        for row in config_reader:
-            if row[0] == "reference_column":
-                self.ref_column = row[1]
-            elif row[0] == "ATR_period":
-                self.ATR_period = int(row[1])
-            elif row[0] == "time_factor":
-                self.time_factor = int(row[1])
-            elif row[0] == "price_factor":
-                self.price_factor = float(row[1])
-            elif row[0] == "swing_column":
-                swing_column = row[1]
+        self.ref_column = config_data[0]
+        swing_column = config_data[1]
+        self.ATR_period = config_data[2]
+        self.time_factor = config_data[3]
+        self.price_factor = config_data[4]
 
         if self.DEBUG:
             print("Reference Column:", self.ref_column)
@@ -56,7 +47,6 @@ class Swing_Generator:
 
         if self.ref_column == "NA" or self.ATR_period == 0 or self.time_factor == -1 or self.price_factor == 0 or swing_column == "NA":
             raise ValueError("One or more required attributes not found in configuration file: " + configfile)
-        infile.close()
 
     def generate_swings(self):
         self.OHLC_data = pd.read_csv(self.data_file, names=['Date_Time', 'Open', 'High', 'Low', 'Close'])

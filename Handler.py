@@ -15,6 +15,12 @@ import time
 FOREX_DATA_PATH = "C:\\Users\\wyatt\\Documents\\ForexData"
 GRAPHS_PATH = "C:\\Users\\wyatt\\Documents\\ForexGraphs"
 ANALYSIS_SUMMARY_PATH = ".\\"
+CONFIG_FILE="Config.conf" #TODO: this. maybe do an ini style thing
+#TODO: add support for other config options to do big multiconfig, multitimeframe analysis at once
+ATR_PERIOD = 5
+TIME_FACTOR = 3
+PRICE_FACTOR = 1.5
+CONFIG_T = ["HighLow", "HighLow", ATR_PERIOD, TIME_FACTOR, PRICE_FACTOR]
 
 with open("Pair_Analysis.txt", 'r') as infile:
     pairs_to_analyze = infile.read().splitlines()
@@ -27,7 +33,7 @@ for pair in pairs_to_analyze:
     forex_data_file = forex_name_template + pair + ".csv"
     forex_swing_file =  forex_name_template + pair + "_swings.csv"
 
-    sg = Swing_Generator(forex_data_file,forex_swing_file)
+    sg = Swing_Generator(forex_data_file,forex_swing_file, CONFIG_T)
     if(os.path.isfile(forex_swing_file)):
         sg.update_swings()
     else:
