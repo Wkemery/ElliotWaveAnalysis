@@ -8,7 +8,7 @@ import plotly.plotly  as py
 import plotly.offline as offline
 import plotly.graph_objs as go
 DT_FORMAT = "%Y-%m-%d %H:%M:%S"
-#TODO: change the whole wave_data thing to maybe a list and return that list along with summary_analysis in analyze()
+#TODO: change wave data to be a list of datas when adding support for more data patterns
 
 class Elliot_Analyzer:
     DEBUG = False

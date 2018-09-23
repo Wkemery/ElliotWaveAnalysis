@@ -31,7 +31,7 @@ for pair in pairs_to_analyze:
     pairname, pairtime = pair.split("_")
     forex_name_template = FOREX_DATA_PATH + "\\" + pairname + "\\"
     forex_data_file = forex_name_template + pair + ".csv"
-    forex_swing_file =  forex_name_template + pair + "_swings.csv"
+    forex_swing_file =  forex_name_template + pair + "_swings_" + str(ATR_PERIOD) + "_" + str(TIME_FACTOR) + "_" + str(PRICE_FACTOR) + ".csv"
 
     sg = Swing_Generator(forex_data_file,forex_swing_file, CONFIG_T)
     if(os.path.isfile(forex_swing_file)):
@@ -44,6 +44,8 @@ for pair in pairs_to_analyze:
     if analysis_summary != []:
         ea.export_graph(GRAPHS_PATH + "\\" + pair + "_waves.html")
         outfile.write(pair + "\t" + str(analysis_summary) + "\n")
+
+    print('.', end='', flush=True)
 
 outfile.close()
 
