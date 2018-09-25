@@ -29,21 +29,20 @@ class Swing_Generator:
         swing_column = None
         if self.DEBUG: print(self.OHLC_data.tail())
 
-        self.ref_column = config_data[0]
-        swing_column = config_data[1]
-        self.ATR_period = config_data[2]
-        self.time_factor = config_data[3]
-        self.price_factor = config_data[4]
+        self.ref_column = "Close" if config_data["reference_price"] == "Close" else "HighLow"
+        self.swings_column_high = "Close" if config_data["reference_price"] == "Close" else "High"
+        self.swings_column_low = "Close" if config_data["reference_price"] == "Close" else "Low"
+        self.ATR_period = int(config_data["atr_period"])
+        self.time_factor = int(config_data["time_factor"])
+        self.price_factor = float(config_data["price_factor"])
 
         if self.DEBUG:
             print("Reference Column:", self.ref_column)
-            print("Swing Column:", swing_column)
             print("ATR period:", self.ATR_period)
             print("Time Factor:", self.time_factor)
             print("Price Factor:", self.price_factor)
 
-        self.swings_column_high = swing_column if swing_column == "Close" else "High"
-        self.swings_column_low = swing_column if swing_column == "Close" else "Low"
+
 
         if self.ref_column == "NA" or self.ATR_period == 0 or self.time_factor == -1 or self.price_factor == 0 or swing_column == "NA":
             raise ValueError("One or more required attributes not found in configuration file: " + configfile)
@@ -162,7 +161,7 @@ class Swing_Generator:
                 violation_price = reg_point.data[ref_column_high] - (reg_point.data["ATR"]*self.price_factor)
                 if current_row[ref_column_high] > reg_point.data[ref_column_high]: #new extreme with direction
                     reg_point = reg_point._replace(data = current_row, row = row_count)
-                elif current_row[ref_column_low] < violation_price and (row_count - self.time_factor) > swing_point.row: #Violated ATR range in opposite direction
+                elif current_row[ref_column_low] < violation_price and (row_count - self.time_factor) > reg_point.row: #Violated ATR range in opposite direction
                     if self.DEBUG:
                         print("Violated ATR in the Low direction. Register a new Low, write out previous RP High as Swing High")
                         print("Previous REgisted Point: ", reg_point)
@@ -179,7 +178,7 @@ class Swing_Generator:
 
                 if current_row[ref_column_low] < reg_point.data[ref_column_low]: #new extreme with direction
                     reg_point = reg_point._replace(data = current_row, row = row_count)
-                elif current_row[ref_column_high] > violation_price and (row_count - self.time_factor) > swing_point.row: #Violated ATR range in opposite direction
+                elif current_row[ref_column_high] > violation_price and (row_count - self.time_factor) > reg_point.row: #Violated ATR range in opposite direction
                     if self.DEBUG:
                         print("Violated ATR in the High direction. Register a new High, write out previous RP low as Swing low")
                         print("Previous REgisted Point: ", reg_point)

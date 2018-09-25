@@ -32,29 +32,33 @@ class Elliot_Analyzer:
         if self.DEBUG: print("OHLCDATA")
         if self.DEBUG: print(self.OHLC_data)
         self.currency_name = currency_name
-        self.wave_data = None
+        self.wave_data = {}
 
     def analyze(self):
+        # Set up Analysis type
+        my_config = self.config_section_map(self.config, "Analysis_Type")
+
+
         analysis_summary = []
 
         #Wave 5 analysis
-        if self.wave5(self.swing_data.tail(6)):
-            analysis_summary.append("Wave 5")
-        elif self.wave4(self.swing_data.tail(5)):
-            analysis_summary.append("Wave 4")
-        elif self.wave3(self.swing_data.tail(4)):
-            analysis_summary.append("Wave 3")
-        elif self.wave2(self.swing_data.tail(3)):
-            analysis_summary.append("Wave 2")
+        if my_config["wave5"] == "1" and self.wave5(self.swing_data.tail(6)):
+            analysis_summary.append("Wave5")
+        elif my_config["wave4"] == "1" and self.wave4(self.swing_data.tail(5)):
+            analysis_summary.append("Wave4")
+        elif my_config["wave3"] == "1" and self.wave3(self.swing_data.tail(4)):
+            analysis_summary.append("Wave3")
+        elif my_config["wave2"] == "1" and self.wave2(self.swing_data.tail(3)):
+            analysis_summary.append("Wave2")
 
         #wave c
-        if self.waveC(self.swing_data.tail(4)):
-            analysis_summary.append("Wave C")
+        if my_config["wavec"] == "1" and self.waveC(self.swing_data.tail(4)):
+            analysis_summary.append("WaveC")
 
         # if self.gartley(self.swing_data.tail(4)) something like this for other analysis
         return analysis_summary
 
-    def wave2(self, swings):
+    def wave2(self, swings, downward_call=False):
 
         relevant_swings = swings
         my_config = self.config_section_map(self.config, "Wave2")
@@ -67,17 +71,18 @@ class Elliot_Analyzer:
         wave_min = self.in_range(wave2_price, wave1_inrets[my_config['inret_wave1_min']], wave1_inrets[my_config['inret_wave1_max']])
         if wave_min:
             wave_typ = self.in_range(wave2_price, wave1_inrets[my_config['inret_wave1_typical_min']], wave1_inrets[my_config['inret_wave1_typical_max']])
-            if wave_typ:
-                self.wave_data = (relevant_swings, "Typical")
-            else:
-                self.wave_data = (relevant_swings, "Minimum")
+            if not downward_call:
+                if wave_typ:
+                    self.wave_data["Wave2"] = (relevant_swings, "Typical")
+                else:
+                    self.wave_data["Wave2"] = (relevant_swings, "Minimum")
 
 
         return wave_min
 
-    def wave3(self, swings):
+    def wave3(self, swings, downward_call=False):
         #check for wave 2 requirements
-        if not self.wave2(swings.head(3)):
+        if not self.wave2(swings.head(3), True):
             if self.DEBUG: print("Failed Wave2 on downward call")
             return False
 
@@ -99,16 +104,17 @@ class Elliot_Analyzer:
         wave_min = self.in_range(wave3_price, combo[min(combo, key=combo.get)], combo[max(combo, key=combo.get)])
         if wave_min:
             wave_typ = self.in_range(wave3_price, wave1_apps[my_config['app_wave1_typical']], wave2_exrets[my_config['exret_wave2_typical']])
-            if wave_typ:
-                self.wave_data = (relevant_swings, "Typical")
-            else:
-                self.wave_data = (relevant_swings, "Minimum")
+            if not downward_call:
+                if wave_typ:
+                    self.wave_data["Wave3"] = (relevant_swings, "Typical")
+                else:
+                    self.wave_data["Wave3"] = (relevant_swings, "Minimum")
 
         return wave_min
 
-    def wave4(self, swings):
+    def wave4(self, swings, downward_call=False):
         #check for wave 3 requirements
-        if not self.wave3(swings.head(4)):
+        if not self.wave3(swings.head(4), True):
             if self.DEBUG: print("Failed Wave3 on downward call")
             return False
 
@@ -139,15 +145,16 @@ class Elliot_Analyzer:
 
         if wave_min:
             wave_typ = self.in_range(wave4_price, wave3_rets[my_config['ret_wave3_min']], wave3_rets[my_config['ret_wave3_typical']])
-            if wave_typ:
-                self.wave_data = (relevant_swings, "Typical")
-            else:
-                self.wave_data = (relevant_swings, "Minimum")
+            if not downward_call:
+                if wave_typ:
+                    self.wave_data["Wave4"] = (relevant_swings, "Typical")
+                else:
+                    self.wave_data["Wave4"] = (relevant_swings, "Minimum")
 
         return wave_min
 
     def wave5(self, swings):
-        if not self.wave4(swings.head(5)):
+        if not self.wave4(swings.head(5), True):
             if self.DEBUG : print("Failed Wave4 on downward call")
             return False
 
@@ -194,13 +201,13 @@ class Elliot_Analyzer:
             wave_high_prob = price_in_wave1_3 and price_in_wave_4 and wave1_in_wave1_3 and wave1_in_wave4
 
             if wave_high_prob:
-                self.wave_data = (relevant_swings, "HighProbability")
+                self.wave_data["Wave5"] = (relevant_swings, "HighProbability")
             else:
                 wave_typ = (price_in_wave1_3 and wave1_in_wave1_3) or (price_in_wave1_3 and price_in_wave_4) or (price_in_wave_4 and wave1_in_wave4)
-            if wave_typ:
-                self.wave_data = (relevant_swings, "Typical")
-            else:
-                self.wave_data = (relevant_swings, "Minimum")
+                if wave_typ:
+                    self.wave_data["Wave5"] = (relevant_swings, "Typical")
+                else:
+                    self.wave_data["Wave5"] = (relevant_swings, "Minimum")
 
         return wave_min
 
@@ -245,52 +252,51 @@ class Elliot_Analyzer:
 
         return bottom <= x <= top
 
-    def export_graph(self, output_file):
-        if self.wave_data is None:
-            eprint("Cannot Export graph: There is no Elliot Wave Data")
-            return
-        my_swing_data = self.wave_data[0]
-        print('my swing data:', my_swing_data)
+    def export_graphs(self, output_path):
+        for key,value in self.wave_data.items():
+            my_swing_data = value[0]
+            print("My Swing Data:", my_swing_data)
 
 
-        OHLC_trace = go.Ohlc(x=self.OHLC_data.index,
-                open=self.OHLC_data.Open,
-                high=self.OHLC_data.High,
-                low=self.OHLC_data.Low,
-                close=self.OHLC_data.Close,
-                name="OHLC Data",
-                increasing=dict(line=dict(color= '#408e4a')),
-                decreasing=dict(line=dict(color= '#cc2718')))
+            OHLC_trace = go.Ohlc(x=self.OHLC_data.index,
+                    open=self.OHLC_data.Open,
+                    high=self.OHLC_data.High,
+                    low=self.OHLC_data.Low,
+                    close=self.OHLC_data.Close,
+                    name="OHLC Data",
+                    increasing=dict(line=dict(color= '#408e4a')),
+                    decreasing=dict(line=dict(color= '#cc2718')))
 
-        print([str(x) for x in range(1, len(my_swing_data.index))])
-        swing_trace = go.Scatter(
-            x = my_swing_data.Date_Time,
-            y = my_swing_data.Price,
-            mode = 'lines+markers+text',
-            name = 'Swings',
-            line = dict(
-                color = ('rgb(111, 126, 130)'),
-                width = 3),
-            text=[str(x) for x in range(len(my_swing_data.index))],
-            textposition='top center',
-            textfont=dict(
-                family='sans serif',
-                size=35,
-                color='#2c3035'
+            print([str(x) for x in range(1, len(my_swing_data.index))])
+            swing_trace = go.Scatter(
+                x = my_swing_data.Date_Time,
+                y = my_swing_data.Price,
+                mode = 'lines+markers+text',
+                name = 'Swings',
+                line = dict(
+                    color = ('rgb(111, 126, 130)'),
+                    width = 3),
+                text=[str(x) for x in range(len(my_swing_data.index))],
+                textposition='top center',
+                textfont=dict(
+                    family='sans serif',
+                    size=35,
+                    color='#2c3035'
+                )
             )
-        )
 
-        data = [OHLC_trace, swing_trace]
+            data = [OHLC_trace, swing_trace]
 
+            time_frame = output_path.split("_")[-1]
 
-        layout = dict(
-                        title=self.currency_name,
-                        xaxis = dict(
-                        type="category"))
+            layout = dict(
+                            title=self.currency_name + " " + key + " " + time_frame + ": " + value[1],
+                            xaxis = dict(
+                            type="category"))
 
-        fig = go.Figure(data=data, layout=layout)
-        # offline.plot(fig, output_type='file',filename=self.currency_name + ".html", image='png', image_filename=self.currency_name)
-        offline.plot(fig, output_type='file',filename=output_file, auto_open=False)
+            fig = go.Figure(data=data, layout=layout)
+            # offline.plot(fig, output_type='file',filename=self.currency_name + ".html", image='png', image_filename=self.currency_name)
+            offline.plot(fig, output_type='file',filename=output_path + "_" + key + ".html", auto_open=False)
 
     def config_section_map(self, config, section):
         dict1 = {}
