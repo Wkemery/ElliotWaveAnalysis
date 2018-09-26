@@ -33,7 +33,6 @@ def config_section_map(config, section):
 config = configparser.ConfigParser()
 config.read(CONFIG_FILE)
 ST_config = config_section_map(config, "Short_Term")
-print(ST_config)
 IT_config = config_section_map(config, "Intermediate_Term")
 LT_config = config_section_map(config, "Long_Term")
 MT_config = config_section_map(config, "Major_Term")
