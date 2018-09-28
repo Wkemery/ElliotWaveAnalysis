@@ -18,7 +18,7 @@ class Elliot_Analyzer:
         self.config = configparser.ConfigParser()
         self.config.read(config_file)
 
-        self.swing_data = pd.read_csv(swing_file, names=['Date_Time', 'Price', 'Pos', 'Row']).tail(6)
+        self.swing_data = pd.read_csv(swing_file, names=['Date_Time', 'Price', 'Pos', 'Row']).tail(9)
         self.swing_data['Date_Time'] = pd.to_datetime(self.swing_data['Date_Time'], format=DT_FORMAT)
 
         if self.DEBUG: print("All the Swing Data")
@@ -38,6 +38,9 @@ class Elliot_Analyzer:
         # Set up Analysis type
         my_config = self.config_section_map(self.config, "Analysis_Type")
 
+        if len(self.swing_data.index) < 6:
+            eprint("Not enough swing data to do Wave 5 Analysis!")
+            return []
 
         analysis_summary = []
 
@@ -52,7 +55,11 @@ class Elliot_Analyzer:
             analysis_summary.append("Wave2")
 
         #wave c
-        if my_config["wavec"] == "1" and self.waveC(self.swing_data.tail(4)):
+        if my_config["wavec"] == "1"  and len(self.swing_data.index) < 9:
+            eprint("Not enough swing data to do Wave C Analysis!")
+            return []
+
+        if my_config["wavec"] == "1" and self.waveC(self.swing_data.tail(9)):
             analysis_summary.append("WaveC")
 
         # if self.gartley(self.swing_data.tail(4)) something like this for other analysis
@@ -67,8 +74,15 @@ class Elliot_Analyzer:
 
         wave1_inrets = self.fib_retracement(wave1_swings[0], wave1_swings[1], list(my_config.values()))
 
+        #Ensure Wave 2 has not gone past start of wave 1
+        violated = True
+        if relevant_swings.iloc[2]["Pos"] == "Low":
+            violated = wave2_price < self.OHLC_data.loc[relevant_swings.iloc[0]['Date_Time']]["Close"]
+        else:
+            violated = wave2_price > self.OHLC_data.loc[relevant_swings.iloc[0]['Date_Time']]["Close"]
+
         #check for minimum requirements first
-        wave_min = self.in_range(wave2_price, wave1_inrets[my_config['inret_wave1_min']], wave1_inrets[my_config['inret_wave1_max']])
+        wave_min = self.in_range(wave2_price, wave1_inrets[my_config['inret_wave1_min']], wave1_inrets[my_config['inret_wave1_max']]) and not violated
         if wave_min:
             wave_typ = self.in_range(wave2_price, wave1_inrets[my_config['inret_wave1_typical_min']], wave1_inrets[my_config['inret_wave1_typical_max']])
             if not downward_call:
@@ -76,7 +90,6 @@ class Elliot_Analyzer:
                     self.wave_data["Wave2"] = (relevant_swings, "Typical")
                 else:
                     self.wave_data["Wave2"] = (relevant_swings, "Minimum")
-
 
         return wave_min
 
@@ -134,13 +147,14 @@ class Elliot_Analyzer:
         wave1_3_rets = self.fib_retracement(wave1_swings[0], wave3_swings[1], wave1_3_ret_levels)
         combo = {**wave3_rets, **wave1_3_rets}
 
-        #check for minimum requirements first, then typicaL
+        #Ensure Wave 4 has not gone into closing range of wave 1
         violated = True
         if relevant_swings.iloc[4]["Pos"] == "Low":
             violated = wave4_price < self.OHLC_data.loc[relevant_swings.iloc[1]['Date_Time']]["Close"]
         else:
             violated = wave4_price > self.OHLC_data.loc[relevant_swings.iloc[1]['Date_Time']]["Close"]
 
+        #check for minimum requirements first, then typicaL
         wave_min = self.in_range(wave4_price, combo[min(combo, key=combo.get)], combo[max(combo, key=combo.get)]) and not violated
 
         if wave_min:
@@ -178,7 +192,7 @@ class Elliot_Analyzer:
         wave4_exrets = self.fib_retracement(wave4_swings[0], wave4_swings[1], wave4_exret_levels)
         combo = {**wave1_3_apps, **wave1_apps, **wave4_exrets}
 
-        #violation condition is wave 3 shortest wave TODO
+        # Ensure wave 3 is not shortest wave of 1,3 and 5
         violated = False
         wave1_magnitude = abs(wave1_swings[0] - wave1_swings[1])
         wave3_magnitude = abs(wave3_swings[0] - wave3_swings[1])
@@ -211,14 +225,90 @@ class Elliot_Analyzer:
 
         return wave_min
 
-    def waveA(self, swings):
-        return False
-
-    def waveB(self, swings):
-        return False
-
     def waveC(self, swings):
-        return False
+        relevant_swings = swings.tail(4)
+        my_config = self.config_section_map(self.config, "WaveC")
+
+        #Ensure corrective pattern is following some kind of trend
+        following_trend, trend_swings = self.trending(swings.head(6), my_config["proper_trend"], my_config["mini_trend"], my_config["little_trend"])
+        if not following_trend: return False
+
+        waveA_swings = (relevant_swings.iloc[0]['Price'], relevant_swings.iloc[1]['Price'])
+        waveB_swings = (relevant_swings.iloc[1]['Price'], relevant_swings.iloc[2]['Price'])
+        waveB_price = relevant_swings.iloc[2]['Price']
+        waveC_price = relevant_swings.iloc[3]['Price']
+
+
+        prior_trend_levels = [level for option,level in my_config.items() if option.startswith('inret_prior_trend')]
+        waveA_app_levels = [level for option,level in my_config.items() if option.startswith('app_wavea')]
+        waveB_exret_levels = [level for option,level in my_config.items() if option.startswith('exret_waveb')]
+
+        prior_trend_rets = self.fib_retracement(trend_swings[0], trend_swings[1], prior_trend_levels)
+        wavea_apps = self.fib_projection(waveA_swings[0], waveA_swings[1], waveB_price, waveA_app_levels)
+        waveb_exrets = self.fib_retracement(waveB_swings[0], waveB_swings[1], waveB_exret_levels)
+        combo = {**wavea_apps, **waveb_exrets}
+
+
+        wave_min = self.in_range(waveC_price, prior_trend_rets[my_config['inret_prior_trend_min']], prior_trend_rets[my_config['inret_prior_trend_max']])
+        wave_min = wave_min and self.in_range(waveC_price, combo[min(combo, key=combo.get)], combo[max(combo, key=combo.get)])
+        #Ensure Wave B does not trade past start of wave A
+        #Ensure Wave C Trades past Wave A
+        if relevant_swings.iloc[0]["Pos"] == "High":
+            wave_min = wave_min and self.OHLC_data.loc[relevant_swings.iloc[2]['Date_Time']]["High"] < self.OHLC_data.loc[relevant_swings.iloc[0]['Date_Time']]["Low"]
+            wave_min = wave_min and self.OHLC_data.loc[relevant_swings.iloc[3]['Date_Time']]["Close"] < relevant_swings.iloc[1]['Price']
+        else:
+            wave_min = wave_min and self.OHLC_data.loc[relevant_swings.iloc[2]['Date_Time']]["High"] > self.OHLC_data.loc[relevant_swings.iloc[0]['Date_Time']]["Low"]
+            wave_min = wave_min and self.OHLC_data.loc[relevant_swings.iloc[3]['Date_Time']]["Close"] > relevant_swings.iloc[1]['Price']
+
+        if wave_min:
+            wave_typ = self.in_range(waveC_price, prior_trend_rets[my_config['inret_prior_trend_typical_min']], prior_trend_rets[my_config['inret_prior_trend_typical_max']])
+            if wave_typ: self.wave_data["WaveC"] = (swings, "Typical")
+            else: self.wave_data["WaveC"] = (swings, "Minimum")
+
+        return wave_min
+
+    def trending(self, swings, proper, mini, little):
+        mini_trend = False
+        little_trend = False
+        if mini == "1":
+            mini_trend = True
+
+        if little == "1":
+            little_trend = True
+
+        swing_5_3 = False
+        swing_3_1 = False
+        swing_4_2 = False
+        swing_2_0 = False
+
+        if swings.iloc[0]['Pos'] == "Low":
+            swing_5_3 = swings.iloc[5]['Price'] > swings.iloc[3]['Price']
+            swing_3_1 = swings.iloc[3]['Price'] > swings.iloc[1]['Price']
+            swing_4_2 = swings.iloc[4]['Price'] > swings.iloc[2]['Price']
+            swing_2_0 = swings.iloc[2]['Price'] > swings.iloc[0]['Price']
+            swing_4_1 = swings.iloc[4]['Price'] > swings.iloc[1]['Price']
+        else:
+            swing_5_3 = swings.iloc[5]['Price'] < swings.iloc[3]['Price']
+            swing_3_1 = swings.iloc[3]['Price'] < swings.iloc[1]['Price']
+            swing_4_2 = swings.iloc[4]['Price'] < swings.iloc[2]['Price']
+            swing_2_0 = swings.iloc[2]['Price'] < swings.iloc[0]['Price']
+            swing_4_1 = swings.iloc[4]['Price'] < swings.iloc[1]['Price']
+
+
+        little_trend = little_trend and swing_5_3 and swing_4_2
+        big_trend = little_trend and swing_3_1 and swing_2_0
+
+        if proper == "1":
+            big_trend = big_trend and swing_4_1
+
+        swing_1 = swings.iloc[4]['Price']
+        swing_2 = swings.iloc[5]['Price']
+        if big_trend:
+            swing_1 = swings.iloc[0]['Price']
+        elif little_trend:
+            swing_1 = swings.iloc[2]['Price']
+
+        return big_trend or little_trend or mini_trend, (swing_1, swing_2)
 
     def fib_retracement(self, swing_1, swing_2, fib_levels):
         if self.DEBUG: print("Swing1: ", swing_1, "\nSwing2: ", swing_2)
@@ -257,6 +347,11 @@ class Elliot_Analyzer:
             my_swing_data = value[0]
             print("My Swing Data:", my_swing_data)
 
+            lables = []
+            if key == "WaveC":
+                lables = ["","","","","","","A", "B", "C"]
+            else:
+                lables = [str(x) for x in range(len(my_swing_data.index))]
 
             OHLC_trace = go.Ohlc(x=self.OHLC_data.index,
                     open=self.OHLC_data.Open,
@@ -276,7 +371,7 @@ class Elliot_Analyzer:
                 line = dict(
                     color = ('rgb(111, 126, 130)'),
                     width = 3),
-                text=[str(x) for x in range(len(my_swing_data.index))],
+                text=lables,
                 textposition='top center',
                 textfont=dict(
                     family='sans serif',
